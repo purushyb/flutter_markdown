@@ -48,10 +48,8 @@ Enjoy!
 
 void main() {
   runApp(new MaterialApp(
-    title: "Markdown Demo",
-    home: new Scaffold(
-      appBar: new AppBar(title: const Text('Markdown Demo')),
-      body: const Markdown(data: _markdownData)
-    )
-  ));
+      title: "Markdown Demo",
+      home: new Scaffold(
+          appBar: new AppBar(title: const Text('Markdown Demo')),
+          body: const Markdown(data: _markdownData))));
 }

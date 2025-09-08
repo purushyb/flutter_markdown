@@ -13,3 +13,6 @@ pubspec.lock
 # Visual Studio Code related
 .vscode/
 .history/
+
+# FVM Version Cache
+.fvm/

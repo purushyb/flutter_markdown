@@ -13,9 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:mockito/mockito.dart';
 
 void main() {
-  TextTheme textTheme = new Typography(platform: TargetPlatform.android)
-      .black
-      .merge(new TextTheme(body1: new TextStyle(fontSize: 12.0)));
+  const TextTheme textTheme = TextTheme(bodyMedium: TextStyle(fontSize: 12.0));
 
   testWidgets('Simple string', (WidgetTester tester) async {
     await tester.pumpWidget(_boilerplate(const MarkdownBody(data: 'Hello')));
@@ -99,15 +97,14 @@ void main() {
 
   group('Links', () {
     testWidgets('should be tappable', (WidgetTester tester) async {
-      String tapResult;
+      String? tapResult;
       await tester.pumpWidget(_boilerplate(new Markdown(
         data: '[Link Text](href)',
         onTapLink: (value) => tapResult = value,
       )));
 
-      final RichText textWidget =
-          tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      final TextSpan span = textWidget.text;
+      final RichText textWidget = tester.widget(find.byType(RichText));
+      final TextSpan span = textWidget.text as TextSpan;
 
       (span.recognizer as TapGestureRecognizer).onTap();
 
@@ -116,24 +113,35 @@ void main() {
       expect(tapResult, 'href');
     });
 
-    testWidgets('should work with nested elements', (WidgetTester tester) async {
+    testWidgets('should work with nested elements',
+        (WidgetTester tester) async {
       final List<String> tapResults = <String>[];
       await tester.pumpWidget(_boilerplate(new Markdown(
         data: '[Link `with nested code` Text](href)',
         onTapLink: (value) => tapResults.add(value),
       )));
 
-      final RichText textWidget =
-          tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      final TextSpan span = textWidget.text;
+      final RichText textWidget = tester.widget(find.byType(RichText));
+      final TextSpan span = textWidget.text as TextSpan;
 
       final List<Type> gestureRecognizerTypes = <Type>[];
-      span.visitTextSpan((TextSpan textSpan) {
-        TapGestureRecognizer recognizer = textSpan.recognizer;
-        gestureRecognizerTypes.add(recognizer.runtimeType);
-        recognizer.onTap();
-        return true;
-      });
+      void visit(InlineSpan s) {
+        if (s is TextSpan) {
+          final recognizer = s.recognizer;
+          if (recognizer != null) {
+            gestureRecognizerTypes.add(recognizer.runtimeType);
+            (recognizer as TapGestureRecognizer).onTap?.call();
+          }
+          final children = s.children;
+          if (children != null) {
+            for (final c in children) {
+              visit(c);
+            }
+          }
+        }
+      }
+
+      visit(span);
 
       expect(span.children.length, 3);
       expect(gestureRecognizerTypes.length, 3);
@@ -146,13 +154,12 @@ void main() {
       final List<String> tapResults = <String>[];
 
       await tester.pumpWidget(_boilerplate(new Markdown(
-          data: '[First Link](firstHref) and [Second Link](secondHref)',
-          onTapLink: (value) => tapResults.add(value),
+        data: '[First Link](firstHref) and [Second Link](secondHref)',
+        onTapLink: (value) => tapResults.add(value),
       )));
 
-      final RichText textWidget =
-          tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      final TextSpan span = textWidget.text;
+      final RichText textWidget = tester.widget(find.byType(RichText));
+      final TextSpan span = textWidget.text as TextSpan;
 
       final List<Type> gestureRecognizerTypes = <Type>[];
       span.visitTextSpan((TextSpan textSpan) {
@@ -178,31 +185,28 @@ void main() {
 
     testWidgets('should not interrupt styling', (WidgetTester tester) async {
       await tester.pumpWidget(_boilerplate(const Markdown(
-        data:'_textbefore ![alt](http://img) textafter_',
+        data: '_textbefore ![alt](http://img) textafter_',
       )));
 
-      final RichText firstTextWidget =
-          tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      final Image image =
-          tester.allWidgets.firstWhere((Widget widget) => widget is Image);
-      final NetworkImage networkImage = image.image;
+      final RichText firstTextWidget = tester.widget(find.byType(RichText));
+      final Image image = tester.widget(find.byType(Image));
+      final NetworkImage networkImage = image.image as NetworkImage;
       final RichText secondTextWidget =
-          tester.allWidgets.lastWhere((Widget widget) => widget is RichText);
+          tester.widgetList(find.byType(RichText)).last as RichText;
 
       expect(firstTextWidget.text.text, 'textbefore ');
       expect(firstTextWidget.text.style.fontStyle, FontStyle.italic);
-      expect(networkImage.url,'http://img');
+      expect(networkImage.url, 'http://img');
       expect(secondTextWidget.text.text, ' textafter');
       expect(secondTextWidget.text.style.fontStyle, FontStyle.italic);
     });
 
     testWidgets('should work with a link', (WidgetTester tester) async {
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: '![alt](https://img#50x50)')));
+      await tester.pumpWidget(
+          _boilerplate(const Markdown(data: '![alt](https://img#50x50)')));
 
-      final Image image =
-        tester.allWidgets.firstWhere((Widget widget) => widget is Image);
-      final NetworkImage networkImage = image.image;
+      final Image image = tester.widget(find.byType(Image));
+      final NetworkImage networkImage = image.image as NetworkImage;
       expect(networkImage.url, 'https://img');
       expect(image.width, 50);
       expect(image.height, 50);
@@ -212,8 +216,7 @@ void main() {
       await tester
           .pumpWidget(_boilerplate(const Markdown(data: '![alt](http.png)')));
 
-      final Image image =
-        tester.allWidgets.firstWhere((Widget widget) => widget is Image);
+      final Image image = tester.widget(find.byType(Image));
       expect(image.image is FileImage, isTrue);
     });
 
@@ -221,36 +224,37 @@ void main() {
       await tester.pumpWidget(_boilerplate(
           const Markdown(data: '![alt](resource:assets/logo.png)')));
 
-      final Image image =
-        tester.allWidgets.firstWhere((Widget widget) => widget is Image);
+      final Image image = tester.widget(find.byType(Image));
       expect(image.image is AssetImage, isTrue);
-      expect((image.image as AssetImage).assetName == 'assets/logo.png', isTrue);
+      expect(
+          (image.image as AssetImage).assetName == 'assets/logo.png', isTrue);
     });
 
-    testWidgets('should work with local image files', (WidgetTester tester) async {
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: '![alt](img.png#50x50)')));
+    testWidgets('should work with local image files',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+          _boilerplate(const Markdown(data: '![alt](img.png#50x50)')));
 
-      final Image image =
-        tester.allWidgets.firstWhere((Widget widget) => widget is Image);
-      final FileImage fileImage = image.image;
+      final Image image = tester.widget(find.byType(Image));
+      final FileImage fileImage = image.image as FileImage;
       expect(fileImage.file.path, 'img.png');
       expect(image.width, 50);
       expect(image.height, 50);
     });
 
-    testWidgets('should show properly next to text', (WidgetTester tester) async {
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: 'Hello ![alt](img#50x50)')));
+    testWidgets('should show properly next to text',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+          _boilerplate(const Markdown(data: 'Hello ![alt](img#50x50)')));
 
-      final RichText richText =
-        tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      TextSpan textSpan = richText.text;
+      final RichText richText = tester.widget(find.byType(RichText));
+      TextSpan textSpan = richText.text as TextSpan;
       expect(textSpan.text, 'Hello ');
       expect(textSpan.style, isNotNull);
     });
 
-    testWidgets('should work when nested in a link', (WidgetTester tester) async {
+    testWidgets('should work when nested in a link',
+        (WidgetTester tester) async {
       final List<String> tapResults = <String>[];
       await tester.pumpWidget(_boilerplate(new Markdown(
         data: '[![alt](https://img#50x50)](href)',
@@ -258,15 +262,16 @@ void main() {
       )));
 
       final GestureDetector detector =
-        tester.allWidgets.firstWhere((Widget widget) => widget is GestureDetector);
+          tester.widget(find.byType(GestureDetector));
 
-      detector.onTap();
+      detector.onTap?.call();
 
       expect(tapResults.length, 1);
       expect(tapResults, everyElement('href'));
     });
 
-    testWidgets('should work when nested in a link with text', (WidgetTester tester) async {
+    testWidgets('should work when nested in a link with text',
+        (WidgetTester tester) async {
       final List<String> tapResults = <String>[];
       await tester.pumpWidget(_boilerplate(new Markdown(
         data: '[Text before ![alt](https://img#50x50) text after](href)',
@@ -274,17 +279,16 @@ void main() {
       )));
 
       final GestureDetector detector =
-        tester.allWidgets.firstWhere((Widget widget) => widget is GestureDetector);
-      detector.onTap();
+          tester.widget(find.byType(GestureDetector));
+      detector.onTap?.call();
 
-      final RichText firstTextWidget =
-        tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      final TextSpan firstSpan = firstTextWidget.text;
+      final RichText firstTextWidget = tester.widget(find.byType(RichText));
+      final TextSpan firstSpan = firstTextWidget.text as TextSpan;
       (firstSpan.recognizer as TapGestureRecognizer).onTap();
 
       final RichText lastTextWidget =
-        tester.allWidgets.lastWhere((Widget widget) => widget is RichText);
-      final TextSpan lastSpan = lastTextWidget.text;
+          tester.widgetList(find.byType(RichText)).last as RichText;
+      final TextSpan lastSpan = lastTextWidget.text as TextSpan;
       (lastSpan.recognizer as TapGestureRecognizer).onTap();
 
       expect(firstSpan.children, null);
@@ -299,25 +303,26 @@ void main() {
       expect(tapResults, everyElement('href'));
     });
 
-    testWidgets('should work alongside different links', (WidgetTester tester) async {
+    testWidgets('should work alongside different links',
+        (WidgetTester tester) async {
       final List<String> tapResults = <String>[];
       await tester.pumpWidget(_boilerplate(new Markdown(
-        data: '[Link before](firstHref)[![alt](https://img#50x50)](imageHref)[link after](secondHref)',
+        data:
+            '[Link before](firstHref)[![alt](https://img#50x50)](imageHref)[link after](secondHref)',
         onTapLink: (value) => tapResults.add(value),
       )));
 
-      final RichText firstTextWidget =
-        tester.allWidgets.firstWhere((Widget widget) => widget is RichText);
-      final TextSpan firstSpan = firstTextWidget.text;
+      final RichText firstTextWidget = tester.widget(find.byType(RichText));
+      final TextSpan firstSpan = firstTextWidget.text as TextSpan;
       (firstSpan.recognizer as TapGestureRecognizer).onTap();
 
       final GestureDetector detector =
-        tester.allWidgets.firstWhere((Widget widget) => widget is GestureDetector);
-      detector.onTap();
+          tester.widget(find.byType(GestureDetector));
+      detector.onTap?.call();
 
       final RichText lastTextWidget =
-        tester.allWidgets.lastWhere((Widget widget) => widget is RichText);
-      final TextSpan lastSpan = lastTextWidget.text;
+          tester.widgetList(find.byType(RichText)).last as RichText;
+      final TextSpan lastSpan = lastTextWidget.text as TextSpan;
       (lastSpan.recognizer as TapGestureRecognizer).onTap();
 
       expect(firstSpan.children, null);
@@ -334,56 +339,53 @@ void main() {
   });
 
   group('uri data scheme', () {
-    testWidgets('should work with image in uri data scheme', (WidgetTester tester) async {
-      const String imageData = '![alt](data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=)';
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: imageData)));
+    testWidgets('should work with image in uri data scheme',
+        (WidgetTester tester) async {
+      const String imageData =
+          '![alt](data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=)';
+      await tester.pumpWidget(_boilerplate(const Markdown(data: imageData)));
 
-      final Image image =
-      tester.allWidgets.firstWhere((Widget widget) => widget is Image);
+      final Image image = tester.widget(find.byType(Image));
       expect(image.image.runtimeType, MemoryImage);
     });
 
-    testWidgets('should work with base64 text in uri data scheme', (WidgetTester tester) async {
+    testWidgets('should work with base64 text in uri data scheme',
+        (WidgetTester tester) async {
       const String imageData = '![alt](data:text/plan;base64,Rmx1dHRlcg==)';
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: imageData)));
+      await tester.pumpWidget(_boilerplate(const Markdown(data: imageData)));
 
-      final Text widget =
-      tester.allWidgets.firstWhere((Widget widget) => widget is Text);
+      final Text widget = tester.widget(find.byType(Text));
       expect(widget.runtimeType, Text);
       expect(widget.data, 'Flutter');
     });
 
-    testWidgets('should work with text in uri data scheme', (WidgetTester tester) async {
+    testWidgets('should work with text in uri data scheme',
+        (WidgetTester tester) async {
       const String imageData = '![alt](data:text/plan,Hello%2C%20Flutter)';
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: imageData)));
+      await tester.pumpWidget(_boilerplate(const Markdown(data: imageData)));
 
-      final Text widget =
-      tester.allWidgets.firstWhere((Widget widget) => widget is Text);
+      final Text widget = tester.widget(find.byType(Text));
       expect(widget.runtimeType, Text);
       expect(widget.data, 'Hello, Flutter');
     });
 
-    testWidgets('should work with empty uri data scheme', (WidgetTester tester) async {
+    testWidgets('should work with empty uri data scheme',
+        (WidgetTester tester) async {
       const String imageData = '![alt](data:,)';
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: imageData)));
+      await tester.pumpWidget(_boilerplate(const Markdown(data: imageData)));
 
-      final Text widget =
-      tester.allWidgets.firstWhere((Widget widget) => widget is Text);
+      final Text widget = tester.widget(find.byType(Text));
       expect(widget.runtimeType, Text);
       expect(widget.data, '');
     });
 
-    testWidgets('should work with unsupported mime types of uri data scheme', (WidgetTester tester) async {
-      const String imageData = '![alt](data:application/javascript,var%20test=1)';
-      await tester
-          .pumpWidget(_boilerplate(const Markdown(data: imageData)));
+    testWidgets('should work with unsupported mime types of uri data scheme',
+        (WidgetTester tester) async {
+      const String imageData =
+          '![alt](data:application/javascript,var%20test=1)';
+      await tester.pumpWidget(_boilerplate(const Markdown(data: imageData)));
 
-      final SizedBox widget =
-      tester.allWidgets.firstWhere((Widget widget) => widget is SizedBox);
+      final SizedBox widget = tester.widget(find.byType(SizedBox));
       expect(widget.runtimeType, SizedBox);
     });
   });
@@ -413,9 +415,12 @@ void main() {
       _expectTextStrings(tester.allWidgets, <String>['<']);
     });
 
-    testWidgets('existing HTML entities when parsing', (WidgetTester tester) async {
-      await tester.pumpWidget(_boilerplate(const Markdown(data: '&amp; &copy; &#60; &#x0007B;')));
-      _expectTextStrings(tester.allWidgets, <String>['&amp; &copy; &#60; &#x0007B;']);
+    testWidgets('existing HTML entities when parsing',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+          _boilerplate(const Markdown(data: '&amp; &copy; &#60; &#x0007B;')));
+      _expectTextStrings(
+          tester.allWidgets, <String>['&amp; &copy; &#60; &#x0007B;']);
     });
   });
 
@@ -433,11 +438,12 @@ void main() {
   });
 
   testWidgets('Changing config - style', (WidgetTester tester) async {
-    final ThemeData theme = new ThemeData.light().copyWith(textTheme: textTheme);
+    final ThemeData theme =
+        new ThemeData.light().copyWith(textTheme: textTheme);
 
     final MarkdownStyleSheet style1 = new MarkdownStyleSheet.fromTheme(theme);
     final MarkdownStyleSheet style2 =
-    new MarkdownStyleSheet.largeFromTheme(theme);
+        new MarkdownStyleSheet.largeFromTheme(theme);
     expect(style1, isNot(style2));
 
     await tester.pumpWidget(
@@ -453,7 +459,8 @@ void main() {
   });
 
   testWidgets('Style equality', (WidgetTester tester) async {
-    final ThemeData theme = new ThemeData.light().copyWith(textTheme: textTheme);
+    final ThemeData theme =
+        new ThemeData.light().copyWith(textTheme: textTheme);
 
     final MarkdownStyleSheet style1 = new MarkdownStyleSheet.fromTheme(theme);
     final MarkdownStyleSheet style2 = new MarkdownStyleSheet.fromTheme(theme);
@@ -490,9 +497,10 @@ String _extractTextFromTextSpan(TextSpan span) {
 }
 
 String _dumpRenderView() {
-  return WidgetsBinding.instance.renderViewElement.toStringDeep().replaceAll(
-      new RegExp(r'SliverChildListDelegate#\d+', multiLine: true),
-      'SliverChildListDelegate');
+  return WidgetsBinding.instance.renderViewElement!.toStringDeep().replaceAll(
+        RegExp(r'SliverChildListDelegate#\d+', multiLine: true),
+        'SliverChildListDelegate',
+      );
 }
 
 /// Wraps a widget with a left-to-right [Directionality] for tests.
@@ -504,14 +512,18 @@ Widget _boilerplate(Widget child) {
 }
 
 class MockHttpClient extends Mock implements io.HttpClient {}
+
 class MockHttpClientRequest extends Mock implements io.HttpClientRequest {}
+
 class MockHttpClientResponse extends Mock implements io.HttpClientResponse {}
+
 class MockHttpHeaders extends Mock implements io.HttpHeaders {}
 
 class TestHttpOverrides extends io.HttpOverrides {
-   io.HttpClient createHttpClient(io.SecurityContext context) {
-     return createMockImageHttpClient(context);
-   }
+  @override
+  io.HttpClient createHttpClient(io.SecurityContext? context) {
+    return createMockImageHttpClient(context);
+  }
 }
 
 // Returns a mock HTTP client that responds with an image to all requests.
@@ -521,28 +533,98 @@ MockHttpClient createMockImageHttpClient(io.SecurityContext _) {
   final MockHttpClientResponse response = new MockHttpClientResponse();
   final MockHttpHeaders headers = new MockHttpHeaders();
 
-  when(client.getUrl(any)).thenAnswer((_) => new Future<io.HttpClientRequest>.value(request));
+  when(client.getUrl(any))
+      .thenAnswer((_) => new Future<io.HttpClientRequest>.value(request));
   when(request.headers).thenReturn(headers);
-  when(request.close()).thenAnswer((_) => new Future<io.HttpClientResponse>.value(response));
+  when(request.close())
+      .thenAnswer((_) => new Future<io.HttpClientResponse>.value(response));
   when(response.contentLength).thenReturn(_transparentImage.length);
   when(response.statusCode).thenReturn(io.HttpStatus.ok);
   when(response.listen(any)).thenAnswer((Invocation invocation) {
-    final void Function(List<int>) onData = invocation.positionalArguments[0];
-    final void Function() onDone = invocation.namedArguments[#onDone];
-    final void Function(Object, [StackTrace]) onError = invocation.namedArguments[#onError];
-    final bool cancelOnError = invocation.namedArguments[#cancelOnError];
+    final void Function(List<int>) onData =
+        invocation.positionalArguments[0] as void Function(List<int>);
+    final void Function()? onDone =
+        invocation.namedArguments[#onDone] as void Function()?;
+    final void Function(Object, StackTrace?)? onError = invocation
+        .namedArguments[#onError] as void Function(Object, StackTrace?)?;
+    final bool cancelOnError =
+        (invocation.namedArguments[#cancelOnError] as bool?) ?? false;
 
-    return new Stream<List<int>>.fromIterable(<List<int>>[_transparentImage])
-        .listen(onData, onDone: onDone, onError: onError, cancelOnError: cancelOnError);
+    return Stream<List<int>>.fromIterable(<List<int>>[_transparentImage])
+        .listen(
+      onData,
+      onDone: onDone,
+      onError: onError,
+      cancelOnError: cancelOnError,
+    );
   });
 
   return client;
 }
 
 const List<int> _transparentImage = const <int>[
-  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49,
-  0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06,
-  0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44,
-  0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D,
-  0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0A,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
 ];
