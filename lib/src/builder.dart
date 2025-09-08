@@ -350,8 +350,7 @@ class MarkdownBuilder implements md.NodeVisitor {
           mergedTexts.last is RichText &&
           child is RichText) {
         RichText previous = mergedTexts.removeLast() as RichText;
-        final List<InlineSpan> prevChildren =
-            previous.text.children ?? <InlineSpan>[previous.text];
+        final List<InlineSpan> prevChildren = <InlineSpan>[previous.text];
         final List<InlineSpan> newChildren = <InlineSpan>[
           ...prevChildren,
           child.text
