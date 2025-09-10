@@ -8,6 +8,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 const String _markdownData = """# Markdown Example
 Markdown allows you to easily include formatted text, images, and even formatted Dart code in your app.
 
+# h1
+
 ## Styling
 Style text as _italic_, __bold__, or `inline code`.
 
@@ -22,7 +24,7 @@ You can use [hyperlinks](hyperlink) in markdown
 
 You can include images:
 
-![Flutter logo](https://flutter.io/images/flutter-mark-square-100.png#100x100)
+[Flutter logo]https://flutter.io/images/flutter-mark-square-100.png#100x100)
 
 ## Markdown widget
 

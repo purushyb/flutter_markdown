@@ -8,7 +8,6 @@ import 'dart:io' as io;
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:mockito/mockito.dart';
 
@@ -106,7 +105,7 @@ void main() {
       final RichText textWidget = tester.widget(find.byType(RichText));
       final TextSpan span = textWidget.text as TextSpan;
 
-      (span.recognizer as TapGestureRecognizer).onTap();
+      (span.recognizer as TapGestureRecognizer).onTap?.call();
 
       expect(span.children, null);
       expect(span.recognizer.runtimeType, equals(TapGestureRecognizer));
@@ -143,7 +142,7 @@ void main() {
 
       visit(span);
 
-      expect(span.children.length, 3);
+      expect(span.children?.length, 3);
       expect(gestureRecognizerTypes.length, 3);
       expect(gestureRecognizerTypes, everyElement(TapGestureRecognizer));
       expect(tapResults.length, 3);
@@ -162,14 +161,24 @@ void main() {
       final TextSpan span = textWidget.text as TextSpan;
 
       final List<Type> gestureRecognizerTypes = <Type>[];
-      span.visitTextSpan((TextSpan textSpan) {
-        TapGestureRecognizer recognizer = textSpan.recognizer;
-        gestureRecognizerTypes.add(recognizer.runtimeType);
-        recognizer?.onTap();
-        return true;
-      });
+      void visit(InlineSpan s) {
+        if (s is TextSpan) {
+          final recognizer = s.recognizer;
+          gestureRecognizerTypes.add(recognizer?.runtimeType ?? Null);
+          if (recognizer is TapGestureRecognizer) {
+            recognizer.onTap?.call();
+          }
+          final children = s.children;
+          if (children != null) {
+            for (final c in children) {
+              visit(c);
+            }
+          }
+        }
+      }
+      visit(span);
 
-      expect(span.children.length, 3);
+      expect(span.children?.length, 3);
       expect(gestureRecognizerTypes,
           orderedEquals([TapGestureRecognizer, Null, TapGestureRecognizer]));
       expect(tapResults, orderedEquals(['firstHref', 'secondHref']));
@@ -194,11 +203,11 @@ void main() {
       final RichText secondTextWidget =
           tester.widgetList(find.byType(RichText)).last as RichText;
 
-      expect(firstTextWidget.text.text, 'textbefore ');
-      expect(firstTextWidget.text.style.fontStyle, FontStyle.italic);
+      expect(firstTextWidget.text, 'textbefore ');
+      expect(firstTextWidget.text.style, FontStyle.italic);
       expect(networkImage.url, 'http://img');
-      expect(secondTextWidget.text.text, ' textafter');
-      expect(secondTextWidget.text.style.fontStyle, FontStyle.italic);
+      expect(secondTextWidget.text, ' textafter');
+      expect(secondTextWidget.text.style, FontStyle.italic);
     });
 
     testWidgets('should work with a link', (WidgetTester tester) async {
@@ -284,12 +293,12 @@ void main() {
 
       final RichText firstTextWidget = tester.widget(find.byType(RichText));
       final TextSpan firstSpan = firstTextWidget.text as TextSpan;
-      (firstSpan.recognizer as TapGestureRecognizer).onTap();
+      (firstSpan.recognizer as TapGestureRecognizer).onTap?.call();
 
       final RichText lastTextWidget =
           tester.widgetList(find.byType(RichText)).last as RichText;
       final TextSpan lastSpan = lastTextWidget.text as TextSpan;
-      (lastSpan.recognizer as TapGestureRecognizer).onTap();
+      (lastSpan.recognizer as TapGestureRecognizer).onTap?.call();
 
       expect(firstSpan.children, null);
       expect(firstSpan.text, 'Text before ');
@@ -314,7 +323,7 @@ void main() {
 
       final RichText firstTextWidget = tester.widget(find.byType(RichText));
       final TextSpan firstSpan = firstTextWidget.text as TextSpan;
-      (firstSpan.recognizer as TapGestureRecognizer).onTap();
+      (firstSpan.recognizer as TapGestureRecognizer).onTap?.call();
 
       final GestureDetector detector =
           tester.widget(find.byType(GestureDetector));
@@ -323,7 +332,7 @@ void main() {
       final RichText lastTextWidget =
           tester.widgetList(find.byType(RichText)).last as RichText;
       final TextSpan lastSpan = lastTextWidget.text as TextSpan;
-      (lastSpan.recognizer as TapGestureRecognizer).onTap();
+      (lastSpan.recognizer as TapGestureRecognizer).onTap?.call();
 
       expect(firstSpan.children, null);
       expect(firstSpan.text, 'Link before');
@@ -478,22 +487,32 @@ void _expectTextStrings(Iterable<Widget> widgets, List<String> strings) {
   int currentString = 0;
   for (Widget widget in widgets) {
     if (widget is RichText) {
-      final TextSpan span = widget.text;
-      final String text = _extractTextFromTextSpan(span);
+      final InlineSpan span = widget.text;
+      final String text = _extractTextFromInlineSpan(span);
       expect(text, equals(strings[currentString]));
       currentString += 1;
     }
   }
 }
 
-String _extractTextFromTextSpan(TextSpan span) {
-  String text = span.text ?? '';
-  if (span.children != null) {
-    for (TextSpan child in span.children) {
-      text += _extractTextFromTextSpan(child);
+String _extractTextFromInlineSpan(InlineSpan span) {
+  final StringBuffer buffer = StringBuffer();
+
+  void visit(InlineSpan s) {
+    if (s is TextSpan) {
+      if (s.text != null) buffer.write(s.text);
+      final List<InlineSpan>? children = s.children;
+      if (children != null) {
+        for (final InlineSpan child in children) {
+          visit(child);
+        }
+      }
     }
+    // Ignore non-TextSpan (e.g., WidgetSpan) for plain text extraction.
   }
-  return text;
+
+  visit(span);
+  return buffer.toString();
 }
 
 String _dumpRenderView() {
@@ -522,18 +541,18 @@ class MockHttpHeaders extends Mock implements io.HttpHeaders {}
 class TestHttpOverrides extends io.HttpOverrides {
   @override
   io.HttpClient createHttpClient(io.SecurityContext? context) {
-    return createMockImageHttpClient(context);
+    return createMockImageHttpClient();
   }
 }
 
 // Returns a mock HTTP client that responds with an image to all requests.
-MockHttpClient createMockImageHttpClient(io.SecurityContext _) {
+MockHttpClient createMockImageHttpClient() {
   final MockHttpClient client = new MockHttpClient();
   final MockHttpClientRequest request = new MockHttpClientRequest();
   final MockHttpClientResponse response = new MockHttpClientResponse();
   final MockHttpHeaders headers = new MockHttpHeaders();
 
-  when(client.getUrl(any))
+  when(client.getUrl(Uri()))
       .thenAnswer((_) => new Future<io.HttpClientRequest>.value(request));
   when(request.headers).thenReturn(headers);
   when(request.close())
