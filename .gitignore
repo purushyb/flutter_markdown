@@ -1,15 +1,70 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
 .DS_Store
 .atom/
-.idea
-.packages
-.dart_tool/
-.pub/
-ios/.generated/
-ios/Flutter/Generated.xcconfig
-ios/Runner/GeneratedPluginRegistrant.*
-packages
-pubspec.lock
+.buildlog/
+.history
+.svn/
 
-# Visual Studio Code related
+# Mason
+.mason/
+mason-lock.json
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
 .vscode/
-.history/
+.vscode/settings.json
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Environment files
+*.env
+*.env.default
+
+# fastlane specific
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+.bundle/
+vendor/bundle/
+
+# FVM Version Cache
+.fvm/
+
+# remove agent nores
+AGENTS.md
